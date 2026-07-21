@@ -67,6 +67,10 @@ jobs:
         id: bump
         run: |
           set -euo pipefail
+          if [ ! -f VERSION ]; then
+            echo "VERSION file not found at repo root — creating it with 1.0.0"
+            echo "1.0.0" > VERSION
+          fi
           CURRENT=$(cat VERSION | tr -d '[:space:]')
           MAJOR=$(echo "$CURRENT" | cut -d. -f1)
           MINOR=$(echo "$CURRENT" | cut -d. -f2)
