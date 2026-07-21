@@ -68,30 +68,25 @@ jobs:
         run: |
           set -euo pipefail
           if [ ! -f VERSION ]; then
-            echo "VERSION file not found at repo root — creating it with 1.0.0"
+            echo "VERSION file not found at repo root, creating it with 1.0.0"
             echo "1.0.0" > VERSION
           fi
           CURRENT=$(cat VERSION | tr -d '[:space:]')
           MAJOR=$(echo "$CURRENT" | cut -d. -f1)
           MINOR=$(echo "$CURRENT" | cut -d. -f2)
           PATCH=$(echo "$CURRENT" | cut -d. -f3)
-
           case "${{ github.event.inputs.bump }}" in
             major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
             minor) MINOR=$((MINOR+1)); PATCH=0 ;;
             patch) PATCH=$((PATCH+1)) ;;
           esac
-
           NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
           BUILD_NUMBER="${{ github.run_number }}"
           TAG="v${NEW_VERSION}-${{ github.event.inputs.environment }}.${BUILD_NUMBER}"
-
           echo "$NEW_VERSION" > VERSION
-
           echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
           echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
           echo "Bumped $CURRENT -> $NEW_VERSION (build $BUILD_NUMBER, tag $TAG)"
 
       - name: Commit & tag
@@ -130,14 +125,19 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install MAUI Android workload
-        run: dotnet workload install maui-android
+        run: |
+          dotnet workload restore
+          dotnet workload install maui-android
 
-      - name: Restore
-        run: dotnet restore ${{ env.CSPROJ_PATH }}
+      - name: Restore Android
+        run: |
+          dotnet restore ${{ env.CSPROJ_PATH }} \
+            -p:TargetFramework=net8.0-android
 
       - name: Build (unsigned APK)
         run: |
           dotnet build ${{ env.CSPROJ_PATH }} \
+            --no-restore \
             -c ${{ env.ENVIRONMENT }} \
             -f net8.0-android \
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
@@ -186,10 +186,14 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install MAUI iOS workload
-        run: dotnet workload install maui-ios
+        run: |
+          dotnet workload restore
+          dotnet workload install maui-ios
 
-      - name: Restore
-        run: dotnet restore ${{ env.CSPROJ_PATH }}
+      - name: Restore iOS
+        run: |
+          dotnet restore ${{ env.CSPROJ_PATH }} \
+            -p:TargetFramework=net8.0-ios
 
       # No signing certs/provisioning profiles yet, so we build for the
       # iOS SIMULATOR — that needs no code signing at all. This still
@@ -197,6 +201,7 @@ jobs:
       - name: Build (unsigned, simulator target)
         run: |
           dotnet build ${{ env.CSPROJ_PATH }} \
+            --no-restore \
             -c ${{ env.ENVIRONMENT }} \
             -f net8.0-ios \
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
