@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>DashboardMauiApp.Dev</name>
+    </assembly>
+    <members>
+        <member name="T:DashboardMauiApp.Configuration.AppConfig">
+            <summary>
+            Centralised, flavour-aware app configuration.
+            The active flavour is selected at BUILD time via the MSBuild
+            "Configuration" property (Dev / UAT / Stage / Prod), which defines
+            one of the DEV / UAT / STAGE / PROD compiler constants (see the .csproj).
+            </summary>
+        </member>
+        <member name="P:DashboardMauiApp.Configuration.AppConfig.IsProduction">
+            <summary>True only for the Prod/Release flavour.</summary>
+        </member>
+        <member name="T:DashboardMauiApp.Models.DashboardCard">
+            <summary>A single KPI/summary card shown on the Dashboard page.</summary>
+        </member>
+    </members>
+</doc>

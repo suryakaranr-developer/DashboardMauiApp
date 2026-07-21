@@ -1,0 +1,28 @@
+{
+  "profiles": {
+    "Dev - Android": {
+      "commandName": "MauiRun",
+      "commandLineArgs": "-c Dev -f net8.0-android"
+    },
+    "UAT - Android": {
+      "commandName": "MauiRun",
+      "commandLineArgs": "-c UAT -f net8.0-android"
+    },
+    "Stage - Android": {
+      "commandName": "MauiRun",
+      "commandLineArgs": "-c Stage -f net8.0-android"
+    },
+    "Prod - Android": {
+      "commandName": "MauiRun",
+      "commandLineArgs": "-c Prod -f net8.0-android"
+    },
+    "Dev - iOS": {
+      "commandName": "MauiRun",
+      "commandLineArgs": "-c Dev -f net8.0-ios"
+    },
+    "Prod - iOS": {
+      "commandName": "MauiRun",
+      "commandLineArgs": "-c Prod -f net8.0-ios"
+    }
+  }
+}

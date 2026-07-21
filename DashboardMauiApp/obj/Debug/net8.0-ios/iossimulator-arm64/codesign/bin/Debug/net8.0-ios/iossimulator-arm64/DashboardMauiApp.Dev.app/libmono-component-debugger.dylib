@@ -1,0 +1,1 @@
+-v --force --timestamp=none --sign - /Users/apple/Downloads/DashboardMauiApp/DashboardMauiApp/bin/Debug/net8.0-ios/iossimulator-arm64/DashboardMauiApp.Dev.app/libmono-component-debugger.dylib

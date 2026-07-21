@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:DashboardMauiApp.ViewModels"
+             xmlns:models="clr-namespace:DashboardMauiApp.Models"
+             x:Class="DashboardMauiApp.Views.DashboardPage"
+             x:DataType="vm:DashboardViewModel"
+             Title="{Binding Title}">
+
+    <RefreshView Command="{Binding RefreshCommand}" IsRefreshing="{Binding IsBusy}">
+        <ScrollView>
+            <VerticalStackLayout Padding="16" Spacing="16">
+
+                <!-- Environment banner: makes it obvious which flavour is running -->
+                <Border StrokeShape="RoundRectangle 10"
+                        BackgroundColor="{Binding BannerColor}"
+                        Padding="12,10">
+                    <VerticalStackLayout Spacing="2">
+                        <Label Text="{Binding EnvironmentName, StringFormat='Environment: {0}'}"
+                               TextColor="White"
+                               FontAttributes="Bold"
+                               FontSize="16" />
+                        <Label Text="{Binding ApiBaseUrl, StringFormat='API: {0}'}"
+                               TextColor="White"
+                               FontSize="12"
+                               Opacity="0.9" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="Overview"
+                       FontSize="22"
+                       FontAttributes="Bold" />
+
+                <!-- KPI cards -->
+                <CollectionView ItemsSource="{Binding Cards}"
+                                SelectionMode="None">
+                    <CollectionView.ItemsLayout>
+                        <GridItemsLayout Orientation="Vertical" Span="2" HorizontalItemSpacing="12" VerticalItemSpacing="12" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:DashboardCard">
+                            <Border StrokeShape="RoundRectangle 14"
+                                    BackgroundColor="White"
+                                    Padding="14"
+                                    StrokeThickness="0">
+                                <Border.Shadow>
+                                    <Shadow Brush="Black" Opacity="0.12" Radius="10" Offset="0,4" />
+                                </Border.Shadow>
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="{Binding Icon}" FontSize="26" />
+                                    <Label Text="{Binding Value}" FontSize="20" FontAttributes="Bold" />
+                                    <Label Text="{Binding Title}" FontSize="13" TextColor="Gray" />
+                                    <Label Text="{Binding Trend}" FontSize="11" TextColor="{Binding AccentColorHex}" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+                <Label Text="Pull down to refresh"
+                       FontSize="12"
+                       TextColor="Gray"
+                       HorizontalOptions="Center" />
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </RefreshView>
+
+</ContentPage>

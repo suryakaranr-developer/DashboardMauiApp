@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34309.116
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DashboardMauiApp", "DashboardMauiApp\DashboardMauiApp.csproj", "{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+		Dev|Any CPU = Dev|Any CPU
+		UAT|Any CPU = UAT|Any CPU
+		Stage|Any CPU = Stage|Any CPU
+		Prod|Any CPU = Prod|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Dev|Any CPU.ActiveCfg = Dev|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Dev|Any CPU.Build.0 = Dev|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.UAT|Any CPU.ActiveCfg = UAT|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.UAT|Any CPU.Build.0 = UAT|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Stage|Any CPU.ActiveCfg = Stage|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Stage|Any CPU.Build.0 = Stage|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Prod|Any CPU.ActiveCfg = Prod|Any CPU
+		{9A0C3F1E-2C6E-4A61-9C3E-1B2D3E4F5A6B}.Prod|Any CPU.Build.0 = Prod|Any CPU
+	EndGlobalSection
+EndGlobal
