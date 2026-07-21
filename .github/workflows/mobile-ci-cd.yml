@@ -1,0 +1,245 @@
+name: Mobile CI/CD (Android & iOS)
+
+# Manually triggered: pick the environment (and optionally the platform) from
+# the "Run workflow" button on the Actions tab.
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment / build flavour"
+        type: choice
+        required: true
+        options:
+          - UAT
+          - Stage
+          - Prod
+      platform:
+        description: "Which platform(s) to build"
+        type: choice
+        required: true
+        default: both
+        options:
+          - android
+          - ios
+          - both
+      bump:
+        description: "Version part to bump"
+        type: choice
+        required: true
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+# Only one run per environment at a time (prevents two Prod builds racing
+# on the same VERSION file / tag).
+concurrency:
+  group: mobile-ci-cd-${{ github.event.inputs.environment }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: "8.0.x"
+  CSPROJ_PATH: "DashboardMauiApp/DashboardMauiApp.csproj"
+  ENVIRONMENT: ${{ github.event.inputs.environment }}
+
+jobs:
+  # ---------------------------------------------------------------------
+  # 1) Bump the version, commit it back to the branch, tag the release.
+  #    Every downstream job reads its outputs, so Android/iOS/whatever
+  #    gets built always carries the SAME version + build number.
+  # ---------------------------------------------------------------------
+  version-bump:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      build_number: ${{ steps.bump.outputs.build_number }}
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          # Default GITHUB_TOKEN can push commits/tags back to the repo.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version
+        id: bump
+        run: |
+          set -euo pipefail
+          CURRENT=$(cat VERSION | tr -d '[:space:]')
+          MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+          MINOR=$(echo "$CURRENT" | cut -d. -f2)
+          PATCH=$(echo "$CURRENT" | cut -d. -f3)
+
+          case "${{ github.event.inputs.bump }}" in
+            major) MAJOR=$((MAJOR+1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR+1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH+1)) ;;
+          esac
+
+          NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          BUILD_NUMBER="${{ github.run_number }}"
+          TAG="v${NEW_VERSION}-${{ github.event.inputs.environment }}.${BUILD_NUMBER}"
+
+          echo "$NEW_VERSION" > VERSION
+
+          echo "version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$BUILD_NUMBER" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+          echo "Bumped $CURRENT -> $NEW_VERSION (build $BUILD_NUMBER, tag $TAG)"
+
+      - name: Commit & tag
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add VERSION
+          git commit -m "chore: bump version to ${{ steps.bump.outputs.version }} (${{ github.event.inputs.environment }}) [skip ci]"
+          git tag "${{ steps.bump.outputs.tag }}"
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "${{ steps.bump.outputs.tag }}"
+
+  # ---------------------------------------------------------------------
+  # 2) Android build
+  # ---------------------------------------------------------------------
+  build-android:
+    needs: version-bump
+    if: ${{ github.event.inputs.platform == 'android' || github.event.inputs.platform == 'both' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (post version-bump commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: microsoft
+          java-version: "17"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install MAUI Android workload
+        run: dotnet workload install maui-android
+
+      - name: Restore
+        run: dotnet restore ${{ env.CSPROJ_PATH }}
+
+      - name: Build (unsigned APK)
+        run: |
+          dotnet build ${{ env.CSPROJ_PATH }} \
+            -c ${{ env.ENVIRONMENT }} \
+            -f net8.0-android \
+            -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
+            -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
+            -p:AndroidPackageFormat=apk \
+            -o ./artifacts/android
+
+      # --- SIGNING (disabled for now — build is unsigned) -----------------
+      # Once you have a release keystore, add these repo secrets:
+      #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+      #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      # then uncomment this step and add
+      #   -p:AndroidSigningKeyStore=release.keystore
+      #   -p:AndroidSigningKeyAlias=$ANDROID_KEY_ALIAS
+      #   -p:AndroidSigningKeyPass=$ANDROID_KEY_PASSWORD
+      #   -p:AndroidSigningStorePass=$ANDROID_KEYSTORE_PASSWORD
+      # to the build step above (and switch AndroidPackageFormat to aab
+      # for Play Store uploads on Stage/Prod).
+      # - name: Decode keystore
+      #   run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+      # ---------------------------------------------------------------------
+
+      - name: Upload Android artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
+          path: ./artifacts/android/**/*.apk
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------
+  # 3) iOS build (must run on a macOS runner)
+  # ---------------------------------------------------------------------
+  build-ios:
+    needs: version-bump
+    if: ${{ github.event.inputs.platform == 'ios' || github.event.inputs.platform == 'both' }}
+    runs-on: macos-14
+    steps:
+      - name: Checkout (post version-bump commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install MAUI iOS workload
+        run: dotnet workload install maui-ios
+
+      - name: Restore
+        run: dotnet restore ${{ env.CSPROJ_PATH }}
+
+      # No signing certs/provisioning profiles yet, so we build for the
+      # iOS SIMULATOR — that needs no code signing at all. This still
+      # validates that the app compiles and runs for the chosen flavour.
+      - name: Build (unsigned, simulator target)
+        run: |
+          dotnet build ${{ env.CSPROJ_PATH }} \
+            -c ${{ env.ENVIRONMENT }} \
+            -f net8.0-ios \
+            -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
+            -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
+            -p:RuntimeIdentifier=iossimulator-x64 \
+            -p:BuildIpa=false \
+            -o ./artifacts/ios
+
+      # --- SIGNING / DEVICE (disabled for now) -----------------------------
+      # Once you have an Apple Developer certificate (.p12) and a
+      # provisioning profile, add repo secrets:
+      #   IOS_CERTIFICATE_BASE64, IOS_CERTIFICATE_PASSWORD,
+      #   IOS_PROVISIONING_PROFILE_BASE64
+      # then import them into a temporary keychain, switch
+      #   -p:RuntimeIdentifier=ios-arm64 -p:BuildIpa=true
+      #   -p:CodesignKey="iPhone Distribution: Your Company" (or provided)
+      #   -p:CodesignProvision="Your Profile Name"
+      # to produce a real signed .ipa for TestFlight / App Store Connect.
+      # ---------------------------------------------------------------------
+
+      - name: Zip .app bundle
+        run: |
+          cd ./artifacts/ios
+          APP_DIR=$(find . -maxdepth 2 -name "*.app" -print -quit)
+          if [ -z "$APP_DIR" ]; then echo "No .app bundle found"; exit 1; fi
+          zip -r "DashboardMauiApp-${{ env.ENVIRONMENT }}.app.zip" "$APP_DIR"
+
+      - name: Upload iOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
+          path: ./artifacts/ios/*.app.zip
+          if-no-files-found: error
+
+  # ---------------------------------------------------------------------
+  # 4) Summary
+  # ---------------------------------------------------------------------
+  summary:
+    needs: [version-bump, build-android, build-ios]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print summary
+        run: |
+          echo "### Build Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Environment: **${{ github.event.inputs.environment }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Platform(s): **${{ github.event.inputs.platform }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Version: **${{ needs.version-bump.outputs.version }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Build number: **${{ needs.version-bump.outputs.build_number }}**" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Tag: **${{ needs.version-bump.outputs.tag }}**" >> "$GITHUB_STEP_SUMMARY"
