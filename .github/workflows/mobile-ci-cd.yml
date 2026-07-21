@@ -130,14 +130,19 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install MAUI Android workload
-        run: dotnet workload install maui-android
+       run: |
+          dotnet workload restore
+          dotnet workload install maui-android
 
-      - name: Restore
-        run: dotnet restore ${{ env.CSPROJ_PATH }}
+      - name: Restore Android
+        run: | 
+         dotnet restore ${{ env.CSPROJ_PATH }} \ 
+         -p:TargetFramework=net8.0-android
 
       - name: Build (unsigned APK)
         run: |
           dotnet build ${{ env.CSPROJ_PATH }} \
+            --no-restore \
             -c ${{ env.ENVIRONMENT }} \
             -f net8.0-android \
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
@@ -186,10 +191,14 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
 
       - name: Install MAUI iOS workload
-        run: dotnet workload install maui-ios
+        run: |
+           dotnet workload restore
+           dotnet workload install maui-ios
 
-      - name: Restore
-        run: dotnet restore ${{ env.CSPROJ_PATH }}
+      - name: Restore iOS
+        run: |
+          dotnet restore ${{ env.CSPROJ_PATH }} \
+          -p:TargetFramework=net8.0-ios
 
       # No signing certs/provisioning profiles yet, so we build for the
       # iOS SIMULATOR — that needs no code signing at all. This still
@@ -197,6 +206,7 @@ jobs:
       - name: Build (unsigned, simulator target)
         run: |
           dotnet build ${{ env.CSPROJ_PATH }} \
+            --no-restore \
             -c ${{ env.ENVIRONMENT }} \
             -f net8.0-ios \
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
