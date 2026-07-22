@@ -8,7 +8,7 @@
       "version": "1.0.0",
       "restore": {
         "projectUniqueName": "/Users/apple/Downloads/DashboardMauiApp/DashboardMauiApp/DashboardMauiApp.csproj",
-        "projectName": "DashboardMauiApp.Dev",
+        "projectName": "DashboardMauiApp",
         "projectPath": "/Users/apple/Downloads/DashboardMauiApp/DashboardMauiApp/DashboardMauiApp.csproj",
         "packagesPath": "/Users/apple/.nuget/packages/",
         "outputPath": "/Users/apple/Downloads/DashboardMauiApp/DashboardMauiApp/obj/",
@@ -196,10 +196,13 @@
         "android-x86": {
           "#import": []
         },
-        "iossimulator-arm64": {
+        "ios-arm64": {
           "#import": []
         },
         "maccatalyst-arm64": {
+          "#import": []
+        },
+        "maccatalyst-x64": {
           "#import": []
         }
       }

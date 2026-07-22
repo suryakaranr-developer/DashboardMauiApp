@@ -74,6 +74,17 @@
 		<PublishTrimmed>true</PublishTrimmed>
 	</PropertyGroup>
 
+	<!-- =========================================================
+     ANDROID SIGNING (Release & Prod)
+     ========================================================= -->
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-android' and ('$(Configuration)' == 'Release' or '$(Configuration)' == 'Prod')">
+		<AndroidKeyStore>true</AndroidKeyStore>
+		<AndroidSigningKeyStore>keystore/release.keystore</AndroidSigningKeyStore>
+		<AndroidSigningStorePass>android</AndroidSigningStorePass>
+		<AndroidSigningKeyAlias>release</AndroidSigningKeyAlias>
+		<AndroidSigningKeyPass>android</AndroidSigningKeyPass>
+	</PropertyGroup>
+
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
