@@ -79,7 +79,7 @@
      ========================================================= -->
 	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-android' and ('$(Configuration)' == 'Release' or '$(Configuration)' == 'Prod')">
 		<AndroidKeyStore>true</AndroidKeyStore>
-		<AndroidSigningKeyStore>keystore/release.keystore</AndroidSigningKeyStore>
+		<AndroidSigningKeyStore>$(MSBuildProjectDirectory)/../keystore/release.keystore</AndroidSigningKeyStore>
 		<AndroidSigningStorePass>android</AndroidSigningStorePass>
 		<AndroidSigningKeyAlias>release</AndroidSigningKeyAlias>
 		<AndroidSigningKeyPass>android</AndroidSigningKeyPass>
