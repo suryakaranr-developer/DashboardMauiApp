@@ -2,107 +2,179 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net8.0-android;net8.0-ios;net8.0-maccatalyst</TargetFrameworks>
+
 		<OutputType>Exe</OutputType>
 		<RootNamespace>DashboardMauiApp</RootNamespace>
+
 		<UseMaui>true</UseMaui>
 		<SingleProject>true</SingleProject>
+
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
 
 		<ApplicationTitle>Dashboard App</ApplicationTitle>
 		<ApplicationId>com.company.dashboardapp</ApplicationId>
+
 		<ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
 		<ApplicationVersion>1</ApplicationVersion>
 
-		<SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net8.0-ios'">15.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net8.0-maccatalyst'">15.0</SupportedOSPlatformVersion>
-		<SupportedOSPlatformVersion Condition="'$(TargetFramework)' == 'net8.0-android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="'$(TargetFramework)'=='net8.0-android'">21.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="'$(TargetFramework)'=='net8.0-ios'">15.0</SupportedOSPlatformVersion>
+		<SupportedOSPlatformVersion Condition="'$(TargetFramework)'=='net8.0-maccatalyst'">15.0</SupportedOSPlatformVersion>
 
-		<!-- Custom flavour (build flavor) configurations -->
 		<Configurations>Debug;Release;Dev;UAT;Stage;Prod</Configurations>
 	</PropertyGroup>
 
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-maccatalyst'">
-  <CodesignEntitlements>Platforms/MacCatalyst/Entitlements.plist</CodesignEntitlements>
-</PropertyGroup>
+	<PropertyGroup Condition="'$(TargetFramework)'=='net8.0-maccatalyst'">
+		<CodesignEntitlements>Platforms/MacCatalyst/Entitlements.plist</CodesignEntitlements>
+	</PropertyGroup>
 
+	<!-- ========================= -->
+	<!-- Debug / Dev               -->
+	<!-- ========================= -->
 
-	<!-- =========================================================
-	     FLAVOUR: DEV  (also used for plain Debug builds)
-	     ========================================================= -->
 	<PropertyGroup Condition="'$(Configuration)'=='Debug' Or '$(Configuration)'=='Dev'">
+
 		<DefineConstants>$(DefineConstants);DEV</DefineConstants>
+
 		<ApplicationTitle>Dashboard Dev</ApplicationTitle>
 		<ApplicationId>com.company.dashboardapp.dev</ApplicationId>
 		<AssemblyName>DashboardMauiApp.Dev</AssemblyName>
+
 		<AndroidPackageFormat>apk</AndroidPackageFormat>
+
 		<Optimize>false</Optimize>
+
+		<DebugSymbols>true</DebugSymbols>
+		<DebugType>portable</DebugType>
+
 	</PropertyGroup>
 
-	<!-- =========================================================
-	     FLAVOUR: UAT
-	     ========================================================= -->
+	<!-- ========================= -->
+	<!-- Common Release Settings   -->
+	<!-- ========================= -->
+
+	<PropertyGroup Condition="
+      '$(Configuration)'=='Release'
+      Or
+      '$(Configuration)'=='UAT'
+      Or
+      '$(Configuration)'=='Stage'
+      Or
+      '$(Configuration)'=='Prod'">
+
+		<Optimize>true</Optimize>
+
+		<DebugSymbols>false</DebugSymbols>
+		<DebugType>none</DebugType>
+
+		<AndroidUseSharedRuntime>false</AndroidUseSharedRuntime>
+		<EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+
+	</PropertyGroup>
+
+	<!-- ========================= -->
+	<!-- UAT                       -->
+	<!-- ========================= -->
+
 	<PropertyGroup Condition="'$(Configuration)'=='UAT'">
+
 		<DefineConstants>$(DefineConstants);UAT</DefineConstants>
+
 		<ApplicationTitle>Dashboard UAT</ApplicationTitle>
 		<ApplicationId>com.company.dashboardapp.uat</ApplicationId>
 		<AssemblyName>DashboardMauiApp.UAT</AssemblyName>
+
 		<AndroidPackageFormat>apk</AndroidPackageFormat>
+
 	</PropertyGroup>
 
-	<!-- =========================================================
-	     FLAVOUR: STAGE
-	     ========================================================= -->
+	<!-- ========================= -->
+	<!-- Stage                     -->
+	<!-- ========================= -->
+
 	<PropertyGroup Condition="'$(Configuration)'=='Stage'">
+
 		<DefineConstants>$(DefineConstants);STAGE</DefineConstants>
+
 		<ApplicationTitle>Dashboard Stage</ApplicationTitle>
 		<ApplicationId>com.company.dashboardapp.stage</ApplicationId>
 		<AssemblyName>DashboardMauiApp.Stage</AssemblyName>
+
 		<AndroidPackageFormat>aab</AndroidPackageFormat>
+
 	</PropertyGroup>
 
-	<!-- =========================================================
-	     FLAVOUR: PROD (also used for plain Release builds)
-	     ========================================================= -->
+	<!-- ========================= -->
+	<!-- Release / Prod            -->
+	<!-- ========================= -->
+
 	<PropertyGroup Condition="'$(Configuration)'=='Release' Or '$(Configuration)'=='Prod'">
+
 		<DefineConstants>$(DefineConstants);PROD</DefineConstants>
+
 		<ApplicationTitle>Dashboard</ApplicationTitle>
 		<ApplicationId>com.company.dashboardapp</ApplicationId>
 		<AssemblyName>DashboardMauiApp</AssemblyName>
+
 		<AndroidPackageFormat>aab</AndroidPackageFormat>
+
 		<RunAOTCompilation>true</RunAOTCompilation>
 		<PublishTrimmed>true</PublishTrimmed>
+
 	</PropertyGroup>
 
-	<!-- =========================================================
-     ANDROID SIGNING (Release & Prod)
-     ========================================================= -->
-	<PropertyGroup Condition="'$(TargetFramework)' == 'net8.0-android' and ('$(Configuration)' == 'Release' or '$(Configuration)' == 'Prod')">
+	<!-- ========================= -->
+	<!-- Android Signing           -->
+	<!-- ========================= -->
+
+	<PropertyGroup Condition="
+      '$(TargetFramework)'=='net8.0-android'
+      And
+      (
+        '$(Configuration)'=='Release'
+        Or
+        '$(Configuration)'=='UAT'
+        Or
+        '$(Configuration)'=='Stage'
+        Or
+        '$(Configuration)'=='Prod'
+      )">
+
 		<AndroidKeyStore>true</AndroidKeyStore>
-		<AndroidSigningKeyStore>keystore/release.keystore</AndroidSigningKeyStore>
+
+		<AndroidSigningKeyStore>$(MSBuildProjectDirectory)/../keystore/release.keystore</AndroidSigningKeyStore>
+
 		<AndroidSigningStorePass>android</AndroidSigningStorePass>
+
 		<AndroidSigningKeyAlias>release</AndroidSigningKeyAlias>
+
 		<AndroidSigningKeyPass>android</AndroidSigningKeyPass>
+
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- App Icon -->
-		<MauiIcon Include="Resources\AppIcon\appicon.svg" ForegroundFile="Resources\AppIcon\appiconfg.svg" Color="#512BD4" />
 
-		<!-- Splash Screen -->
-		<MauiSplashScreen Include="Resources\Splash\splash.svg" Color="#512BD4" BaseSize="128,128" />
+		<MauiIcon Include="Resources\AppIcon\appicon.svg"
+		          ForegroundFile="Resources\AppIcon\appiconfg.svg"
+		          Color="#512BD4"/>
 
-		<!-- Images -->
+		<MauiSplashScreen Include="Resources\Splash\splash.svg"
+		                  Color="#512BD4"
+		                  BaseSize="128,128"/>
+
 		<MauiImage Include="Resources\Images\*" />
 
-		<!-- Custom Fonts -->
 		<MauiFont Include="Resources\Fonts\*" />
 
-		<!-- Raw Assets -->
-		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+		<MauiAsset Include="Resources\Raw\**"
+		           LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
+
 	</ItemGroup>
 
 	<ItemGroup>
-	  <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="8.0.0" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug"
+		                  Version="8.0.0" />
 	</ItemGroup>
+
 </Project>
