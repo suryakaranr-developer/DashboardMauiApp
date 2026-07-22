@@ -155,7 +155,18 @@ jobs:
             -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
+            -p:AndroidUseSharedRuntime=false \
+            -p:EmbedAssembliesIntoApk=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:Optimize=true \
             -o ./artifacts/android
+          
+      - name: Verify APK
+        run: |
+          APK=$(find ./artifacts/android -name "*.apk" | head -1)
+          echo "APK = $APK"
+          unzip -l "$APK" | grep assemblies || true
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
@@ -181,6 +192,9 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
+          
+      - name: .NET Info
+        run: dotnet --info
 
       - name: Install MAUI iOS workload
         run: |
