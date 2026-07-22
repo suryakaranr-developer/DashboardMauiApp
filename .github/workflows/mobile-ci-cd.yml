@@ -134,31 +134,25 @@ jobs:
           dotnet restore ${{ env.CSPROJ_PATH }} \
             -p:TargetFramework=net8.0-android
 
-      - name: Build (unsigned APK)
+      - name: Decode Android Keystore
         run: |
-          dotnet build ${{ env.CSPROJ_PATH }} \
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+
+      - name: Build Signed Android
+        run: |
+          dotnet publish ${{ env.CSPROJ_PATH }} \
             --no-restore \
             -c ${{ env.ENVIRONMENT }} \
             -f net8.0-android \
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
             -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore=release.keystore \
+            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
             -p:AndroidPackageFormat=apk \
             -o ./artifacts/android
-
-      # --- SIGNING (disabled for now — build is unsigned) -----------------
-      # Once you have a release keystore, add these repo secrets:
-      #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
-      #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
-      # then uncomment this step and add
-      #   -p:AndroidSigningKeyStore=release.keystore
-      #   -p:AndroidSigningKeyAlias=$ANDROID_KEY_ALIAS
-      #   -p:AndroidSigningKeyPass=$ANDROID_KEY_PASSWORD
-      #   -p:AndroidSigningStorePass=$ANDROID_KEYSTORE_PASSWORD
-      # to the build step above (and switch AndroidPackageFormat to aab
-      # for Play Store uploads on Stage/Prod).
-      # - name: Decode keystore
-      #   run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
-      # ---------------------------------------------------------------------
 
       - name: Upload Android artifact
         uses: actions/upload-artifact@v4
