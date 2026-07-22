@@ -134,9 +134,12 @@ jobs:
           dotnet restore ${{ env.CSPROJ_PATH }} \
             -p:TargetFramework=net8.0-android
 
-      - name: Decode Android Keystore
+      - name: Verify Keystore
         run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 --decode > release.keystore
+            echo "Workspace: $GITHUB_WORKSPACE"
+            ls -la
+            ls -la keystore
+            test -f "$GITHUB_WORKSPACE/keystore/release.keystore" && echo "Keystore found" || echo "Keystore NOT found"
 
       - name: Build Signed Android
         run: |
@@ -147,7 +150,7 @@ jobs:
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
             -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
             -p:AndroidKeyStore=true \
-            -p:AndroidSigningKeyStore=release.keystore \
+            -p:AndroidSigningKeyStore=${{ github.workspace }}/keystore/release.keystore \
             -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
             -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
             -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
