@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DashboardMauiApp.Dev")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0+64c358b557907c8f5f2219928005937d6ef6179d")]
 [assembly: System.Reflection.AssemblyProductAttribute("DashboardMauiApp.Dev")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DashboardMauiApp.Dev")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
