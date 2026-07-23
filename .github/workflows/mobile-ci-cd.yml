@@ -162,17 +162,44 @@ jobs:
             -p:Optimize=true \
             -o ./artifacts/android
           
+      - name: Build Signed Android AAB
+        run: |
+          dotnet publish ${{ env.CSPROJ_PATH }} \
+            --no-restore \
+            -c ${{ env.ENVIRONMENT }} \
+            -f net8.0-android \
+            -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
+            -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore=${{ github.workspace }}/keystore/release.keystore \
+            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
+            -p:AndroidPackageFormat=aab \
+            -p:AndroidUseSharedRuntime=false \
+            -p:Optimize=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -o ./artifacts/android-aab
+          
       - name: Verify APK
         run: |
           APK=$(find ./artifacts/android -name "*.apk" | head -1)
           echo "APK = $APK"
           unzip -l "$APK" | grep assemblies || true
 
-      - name: Upload Android artifact
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: android-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
           path: ./artifacts/android/**/*.apk
+          if-no-files-found: error
+          
+      - name: Upload Android AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
+          path: ./artifacts/android-aab/**/*.aab
           if-no-files-found: error
 
   # ---------------------------------------------------------------------
