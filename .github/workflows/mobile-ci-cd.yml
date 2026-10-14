@@ -221,6 +221,21 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           
+      # The Microsoft.iOS 18.x workload needs the iOS 18 SDK (Xcode 16+); the
+      # runner's default Xcode is 15.4, which fails in the linker (MT4162).
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 16.x on this runner. Installed:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
       - name: .NET Info
         run: dotnet --info
 
