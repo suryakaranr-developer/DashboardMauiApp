@@ -232,7 +232,8 @@ jobs:
       - name: Restore iOS
         run: |
           dotnet restore ${{ env.CSPROJ_PATH }} \
-            -p:TargetFramework=net8.0-ios
+            -p:TargetFramework=net8.0-ios \
+            -p:RuntimeIdentifier=ios-arm64
 
       # --- Signing --------------------------------------------------------
       # Repo secrets: IOS_CERTIFICATE_BASE64 (.p12), IOS_CERTIFICATE_PASSWORD,
