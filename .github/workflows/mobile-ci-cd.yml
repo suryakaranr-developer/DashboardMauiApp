@@ -226,7 +226,9 @@ jobs:
       - name: Select Xcode 16
         run: |
           set -euo pipefail
-          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          # -type d skips the Xcode_16.x.y.app symlinks: Xcode cannot find its
+          # SDKs when selected through a symlink path.
+          XCODE=$(find /Applications -maxdepth 1 -name 'Xcode_16*.app' -type d ! -iname '*beta*' ! -iname '*RC*' | sort -V | tail -1)
           if [ -z "$XCODE" ]; then
             echo "::error::No Xcode 16.x on this runner. Installed:"
             ls -d /Applications/Xcode*.app
@@ -234,7 +236,11 @@ jobs:
           fi
           echo "Using $XCODE"
           sudo xcode-select -s "$XCODE/Contents/Developer"
+          echo "DEVELOPER_DIR=$XCODE/Contents/Developer" >> "$GITHUB_ENV"
           xcodebuild -version
+          xcrun --sdk macosx --show-sdk-path
+          xcrun --sdk iphoneos --show-sdk-path
+          xcrun -f actool
 
       - name: .NET Info
         run: dotnet --info
