@@ -177,4 +177,11 @@
 		                  Version="8.0.0" />
 	</ItemGroup>
 
+	<!-- iOS: one App ID (Planet) for every configuration, matching the
+	     provisioning profile. Android keeps its per-environment package ids.
+	     Must stay after the per-configuration groups so it overrides them. -->
+	<PropertyGroup Condition="'$(TargetFramework)'=='net8.0-ios'">
+		<ApplicationId>com.planet.ptfmobile</ApplicationId>
+	</PropertyGroup>
+
 </Project>

@@ -42,6 +42,7 @@ env:
   DOTNET_VERSION: "8.0.x"
   CSPROJ_PATH: "DashboardMauiApp/DashboardMauiApp.csproj"
   ENVIRONMENT: ${{ github.event.inputs.environment }}
+  IOS_TEAM_ID: "866YLRR3U3"
 
 jobs:
   # ---------------------------------------------------------------------
@@ -312,6 +313,10 @@ jobs:
             -getProperty:ApplicationId | tr -d '[:space:]')
           echo "App bundle id : $BUNDLE_ID"
           echo "Profile app id: $PROFILE_APPID"
+          if [ "$TEAM" != "$IOS_TEAM_ID" ]; then
+            echo "::error::Profile belongs to team '$TEAM' but IOS_TEAM_ID is '$IOS_TEAM_ID'."
+            exit 1
+          fi
           case "$PROFILE_APPID" in
             "$TEAM.$BUNDLE_ID"|"$TEAM.*") echo "Profile matches." ;;
             *)
