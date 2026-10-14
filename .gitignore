@@ -1,0 +1,15 @@
+# Build output
+bin/
+obj/
+artifacts/
+
+# IDE / OS
+.idea/
+.vs/
+*.user
+*.suo
+.DS_Store
+
+# Secrets
+*.p12
+*.mobileprovision

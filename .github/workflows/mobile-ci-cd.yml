@@ -42,6 +42,7 @@ env:
   DOTNET_VERSION: "8.0.x"
   CSPROJ_PATH: "DashboardMauiApp/DashboardMauiApp.csproj"
   ENVIRONMENT: ${{ github.event.inputs.environment }}
+  IOS_TEAM_ID: "866YLRR3U3"
 
 jobs:
   # ---------------------------------------------------------------------
@@ -162,17 +163,44 @@ jobs:
             -p:Optimize=true \
             -o ./artifacts/android
           
+      - name: Build Signed Android AAB
+        run: |
+          dotnet publish ${{ env.CSPROJ_PATH }} \
+            --no-restore \
+            -c ${{ env.ENVIRONMENT }} \
+            -f net8.0-android \
+            -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
+            -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore=${{ github.workspace }}/keystore/release.keystore \
+            -p:AndroidSigningStorePass=${{ secrets.ANDROID_KEYSTORE_PASSWORD }} \
+            -p:AndroidSigningKeyAlias=${{ secrets.ANDROID_KEY_ALIAS }} \
+            -p:AndroidSigningKeyPass=${{ secrets.ANDROID_KEY_PASSWORD }} \
+            -p:AndroidPackageFormat=aab \
+            -p:AndroidUseSharedRuntime=false \
+            -p:Optimize=true \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -o ./artifacts/android-aab
+          
       - name: Verify APK
         run: |
           APK=$(find ./artifacts/android -name "*.apk" | head -1)
           echo "APK = $APK"
           unzip -l "$APK" | grep assemblies || true
 
-      - name: Upload Android artifact
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
           name: android-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
           path: ./artifacts/android/**/*.apk
+          if-no-files-found: error
+          
+      - name: Upload Android AAB
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-aab-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
+          path: ./artifacts/android-aab/**/*.aab
           if-no-files-found: error
 
   # ---------------------------------------------------------------------
@@ -193,6 +221,21 @@ jobs:
         with:
           dotnet-version: ${{ env.DOTNET_VERSION }}
           
+      # The Microsoft.iOS 18.x workload needs the iOS 18 SDK (Xcode 16+); the
+      # runner's default Xcode is 15.4, which fails in the linker (MT4162).
+      - name: Select Xcode 16
+        run: |
+          set -euo pipefail
+          XCODE=$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -1)
+          if [ -z "$XCODE" ]; then
+            echo "::error::No Xcode 16.x on this runner. Installed:"
+            ls -d /Applications/Xcode*.app
+            exit 1
+          fi
+          echo "Using $XCODE"
+          sudo xcode-select -s "$XCODE/Contents/Developer"
+          xcodebuild -version
+
       - name: .NET Info
         run: dotnet --info
 
@@ -204,48 +247,137 @@ jobs:
       - name: Restore iOS
         run: |
           dotnet restore ${{ env.CSPROJ_PATH }} \
-            -p:TargetFramework=net8.0-ios
+            -p:TargetFramework=net8.0-ios \
+            -p:RuntimeIdentifier=ios-arm64
 
-      # No signing certs/provisioning profiles yet, so we build for the
-      # iOS SIMULATOR — that needs no code signing at all. This still
-      # validates that the app compiles and runs for the chosen flavour.
-      - name: Build (unsigned, simulator target)
+      # --- Signing --------------------------------------------------------
+      # Repo secrets: IOS_CERTIFICATE_BASE64 (.p12), IOS_CERTIFICATE_PASSWORD,
+      # IOS_PROVISIONING_PROFILE_BASE64 (.mobileprovision).
+      # The certificate goes into a throw-away keychain that is deleted at
+      # the end of the job, even when the build fails.
+      - name: Check signing secrets
+        env:
+          CERT_B64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASS: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
         run: |
-          dotnet build ${{ env.CSPROJ_PATH }} \
+          missing=""
+          [ -z "$CERT_B64" ]    && missing="$missing IOS_CERTIFICATE_BASE64"
+          [ -z "$CERT_PASS" ]   && missing="$missing IOS_CERTIFICATE_PASSWORD"
+          [ -z "$PROFILE_B64" ] && missing="$missing IOS_PROVISIONING_PROFILE_BASE64"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repo secret(s):$missing"
+            exit 1
+          fi
+
+      - name: Install certificate and provisioning profile
+        id: signing
+        env:
+          CERT_B64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERT_PASS: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN="$RUNNER_TEMP/build.keychain-db"
+          KEYCHAIN_PASS="$(uuidgen)"
+          echo "::add-mask::$KEYCHAIN_PASS"
+
+          echo "$CERT_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          echo "$PROFILE_B64" | base64 --decode > "$RUNNER_TEMP/profile.mobileprovision"
+
+          security create-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -P "$CERT_PASS" -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -k "$KEYCHAIN_PASS" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+
+          # Read what the profile contains, then install it.
+          security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" > "$RUNNER_TEMP/profile.plist"
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print :UUID" "$RUNNER_TEMP/profile.plist")
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$RUNNER_TEMP/profile.plist")
+          PROFILE_APPID=$(/usr/libexec/PlistBuddy -c "Print :Entitlements:application-identifier" "$RUNNER_TEMP/profile.plist")
+          PROFILE_TEAM=$(/usr/libexec/PlistBuddy -c "Print :TeamIdentifier:0" "$RUNNER_TEMP/profile.plist")
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          cp "$RUNNER_TEMP/profile.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$PROFILE_UUID.mobileprovision"
+          rm -f "$RUNNER_TEMP/profile.mobileprovision"
+
+          # Signing identity name straight from the imported certificate.
+          IDENTITY=$(security find-identity -v -p codesigning "$KEYCHAIN" | sed -n 's/.*"\(.*\)".*/\1/p' | head -1)
+          [ -n "$IDENTITY" ] || { echo "::error::No code-signing identity found in the .p12"; exit 1; }
+
+          echo "Profile: $PROFILE_NAME ($PROFILE_APPID, team $PROFILE_TEAM)"
+          echo "Identity: $IDENTITY"
+          {
+            echo "keychain=$KEYCHAIN"
+            echo "profile_name=$PROFILE_NAME"
+            echo "profile_appid=$PROFILE_APPID"
+            echo "team=$PROFILE_TEAM"
+            echo "identity=$IDENTITY"
+          } >> "$GITHUB_OUTPUT"
+
+      # The profile only works for the bundle id it was created for. Fail early
+      # with a clear message instead of a cryptic Xcode signing error.
+      - name: Check profile matches the app's bundle id
+        env:
+          PROFILE_APPID: ${{ steps.signing.outputs.profile_appid }}
+          TEAM: ${{ steps.signing.outputs.team }}
+        run: |
+          BUNDLE_ID=$(dotnet msbuild ${{ env.CSPROJ_PATH }} \
+            -p:Configuration=${{ env.ENVIRONMENT }} -p:TargetFramework=net8.0-ios \
+            -getProperty:ApplicationId | tr -d '[:space:]')
+          echo "App bundle id : $BUNDLE_ID"
+          echo "Profile app id: $PROFILE_APPID"
+          if [ "$TEAM" != "$IOS_TEAM_ID" ]; then
+            echo "::error::Profile belongs to team '$TEAM' but IOS_TEAM_ID is '$IOS_TEAM_ID'."
+            exit 1
+          fi
+          case "$PROFILE_APPID" in
+            "$TEAM.$BUNDLE_ID"|"$TEAM.*") echo "Profile matches." ;;
+            *)
+              echo "::error::Profile is for '$PROFILE_APPID' but the ${{ env.ENVIRONMENT }} build uses bundle id '$BUNDLE_ID'. Upload a profile for that App ID, or change ApplicationId in the csproj."
+              exit 1 ;;
+          esac
+
+      - name: Build signed IPA
+        run: |
+          dotnet publish ${{ env.CSPROJ_PATH }} \
             --no-restore \
             -c ${{ env.ENVIRONMENT }} \
             -f net8.0-ios \
             -p:ApplicationDisplayVersion=${{ needs.version-bump.outputs.version }} \
             -p:ApplicationVersion=${{ needs.version-bump.outputs.build_number }} \
-            -p:RuntimeIdentifier=iossimulator-x64 \
-            -p:BuildIpa=false \
-            -o ./artifacts/ios
+            -p:RuntimeIdentifier=ios-arm64 \
+            -p:BuildIpa=true \
+            -p:EnableAssemblyILStripping=false \
+            -p:CodesignKey="${{ steps.signing.outputs.identity }}" \
+            -p:CodesignProvision="${{ steps.signing.outputs.profile_name }}" \
+            -p:DebugType=None \
+            -p:DebugSymbols=false \
+            -p:Optimize=true
 
-      # --- SIGNING / DEVICE (disabled for now) -----------------------------
-      # Once you have an Apple Developer certificate (.p12) and a
-      # provisioning profile, add repo secrets:
-      #   IOS_CERTIFICATE_BASE64, IOS_CERTIFICATE_PASSWORD,
-      #   IOS_PROVISIONING_PROFILE_BASE64
-      # then import them into a temporary keychain, switch
-      #   -p:RuntimeIdentifier=ios-arm64 -p:BuildIpa=true
-      #   -p:CodesignKey="iPhone Distribution: Your Company" (or provided)
-      #   -p:CodesignProvision="Your Profile Name"
-      # to produce a real signed .ipa for TestFlight / App Store Connect.
-      # ---------------------------------------------------------------------
-
-      - name: Zip .app bundle
+      - name: Collect IPA
         run: |
-          cd ./artifacts/ios
-          APP_DIR=$(find . -maxdepth 2 -name "*.app" -print -quit)
-          if [ -z "$APP_DIR" ]; then echo "No .app bundle found"; exit 1; fi
-          zip -r "DashboardMauiApp-${{ env.ENVIRONMENT }}.app.zip" "$APP_DIR"
+          mkdir -p ./artifacts/ios
+          IPA=$(find DashboardMauiApp -name "*.ipa" -path "*ios-arm64*" -print -quit)
+          if [ -z "$IPA" ]; then echo "::error::No .ipa produced"; exit 1; fi
+          echo "IPA = $IPA"
+          cp "$IPA" "./artifacts/ios/DashboardMauiApp-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}.ipa"
 
       - name: Upload iOS artifact
         uses: actions/upload-artifact@v4
         with:
           name: ios-${{ env.ENVIRONMENT }}-${{ needs.version-bump.outputs.version }}
-          path: ./artifacts/ios/*.app.zip
+          path: ./artifacts/ios/*.ipa
           if-no-files-found: error
+
+      - name: Remove keychain and profile
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/build.keychain-db" || true
+          rm -f "$HOME"/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision || true
+          rm -f "$RUNNER_TEMP/profile.plist"
 
   # ---------------------------------------------------------------------
   # 4) Summary
